@@ -17,7 +17,7 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
   useEffect(() => {
     if (gltf.scene) {
       const foundMorphTargets = {};
-      
+
       // Find head and eye bones, and collect morph targets
       gltf.scene.traverse((child) => {
         if (child.isBone) {
@@ -35,20 +35,23 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
             }
           }
         }
-        
+
         // Collect morph targets for emotions
         if (child.isMesh && child.morphTargetDictionary) {
-          console.log('Found mesh with morph targets:', child.name);
-          console.log('Available morph targets:', Object.keys(child.morphTargetDictionary));
+          console.log("Found mesh with morph targets:", child.name);
+          console.log(
+            "Available morph targets:",
+            Object.keys(child.morphTargetDictionary)
+          );
           foundMorphTargets[child.uuid] = {
             mesh: child,
-            dictionary: child.morphTargetDictionary
+            dictionary: child.morphTargetDictionary,
           };
         }
       });
-      
+
       setMorphTargets(foundMorphTargets);
-      
+
       // Notify parent component about available morph targets
       if (onMorphTargetsFound) {
         onMorphTargetsFound(foundMorphTargets);
@@ -97,55 +100,133 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
       if (mesh.morphTargetInfluences) {
         // Reset all morph targets first
         mesh.morphTargetInfluences.fill(0);
-        
+
         // Apply current emotion
-        if (currentEmotion && currentEmotion !== 'neutral') {
-          console.log('Applying emotion:', currentEmotion);
-          
+        if (currentEmotion && currentEmotion !== "neutral") {
+          console.log("Applying emotion:", currentEmotion);
+
           // Ready Player Me emotion mapping
           const emotionMappings = {
-            'happy': ['mouthSmile', 'mouthSmileLeft', 'mouthSmileRight', 'cheekSquintLeft', 'cheekSquintRight'],
-            'sad': ['mouthFrownLeft', 'mouthFrownRight', 'browDownLeft', 'browDownRight'],
-            'angry': ['browDownLeft', 'browDownRight', 'mouthPressLeft', 'mouthPressRight', 'noseSneerLeft', 'noseSneerRight'],
-            'surprised': ['browInnerUp', 'eyeWideLeft', 'eyeWideRight', 'jawOpen'],
-            'disgusted': ['noseSneerLeft', 'noseSneerRight', 'mouthUpperUpLeft', 'mouthUpperUpRight'],
-            'fearful': ['browInnerUp', 'eyeWideLeft', 'eyeWideRight', 'mouthStretchLeft', 'mouthStretchRight'],
-            'joy': ['mouthSmile', 'cheekSquintLeft', 'cheekSquintRight', 'eyeSquintLeft', 'eyeSquintRight'],
-            'excited': ['browInnerUp', 'mouthSmile', 'eyeWideLeft', 'eyeWideRight'],
-            'confused': ['browDownLeft', 'browDownRight', 'mouthLeft', 'mouthRight'],
-            'wink': ['eyeBlinkLeft'],
-            'laugh': ['mouthSmile', 'jawOpen', 'cheekSquintLeft', 'cheekSquintRight'],
-            'smirk': ['mouthSmileLeft', 'mouthDimpleLeft'],
-            'thinking': ['mouthPucker', 'browDownLeft', 'browDownRight'],
-            'love': ['mouthKiss', 'eyeSquintLeft', 'eyeSquintRight'],
-            'tired': ['eyeSquintLeft', 'eyeSquintRight', 'mouthFrownLeft', 'mouthFrownRight'],
-            'cool': ['eyeSquintLeft', 'eyeSquintRight', 'mouthSmile'],
-            'shy': ['eyeSquintLeft', 'eyeSquintRight', 'mouthSmileLeft', 'mouthSmileRight'],
-            'crazy': ['eyeWideLeft', 'eyeWideRight', 'mouthSmile', 'tongueOut']
+            happy: [
+              "mouthSmile",
+              "mouthSmileLeft",
+              "mouthSmileRight",
+              "cheekSquintLeft",
+              "cheekSquintRight",
+            ],
+            sad: [
+              "mouthFrownLeft",
+              "mouthFrownRight",
+              "browDownLeft",
+              "browDownRight",
+            ],
+            angry: [
+              "browDownLeft",
+              "browDownRight",
+              "mouthPressLeft",
+              "mouthPressRight",
+              "noseSneerLeft",
+              "noseSneerRight",
+            ],
+            surprised: [
+              "browInnerUp",
+              "eyeWideLeft",
+              "eyeWideRight",
+              "jawOpen",
+            ],
+            disgusted: [
+              "noseSneerLeft",
+              "noseSneerRight",
+              "mouthUpperUpLeft",
+              "mouthUpperUpRight",
+            ],
+            fearful: [
+              "browInnerUp",
+              "eyeWideLeft",
+              "eyeWideRight",
+              "mouthStretchLeft",
+              "mouthStretchRight",
+            ],
+            joy: [
+              "mouthSmile",
+              "cheekSquintLeft",
+              "cheekSquintRight",
+              "eyeSquintLeft",
+              "eyeSquintRight",
+            ],
+            excited: [
+              "browInnerUp",
+              "mouthSmile",
+              "eyeWideLeft",
+              "eyeWideRight",
+            ],
+            confused: [
+              "browDownLeft",
+              "browDownRight",
+              "mouthLeft",
+              "mouthRight",
+            ],
+            wink: ["eyeBlinkLeft"],
+            laugh: [
+              "mouthSmile",
+              "jawOpen",
+              "cheekSquintLeft",
+              "cheekSquintRight",
+            ],
+            smirk: ["mouthSmileLeft", "mouthDimpleLeft"],
+            thinking: ["mouthPucker", "browDownLeft", "browDownRight"],
+            love: ["mouthKiss", "eyeSquintLeft", "eyeSquintRight"],
+            tired: [
+              "eyeSquintLeft",
+              "eyeSquintRight",
+              "mouthFrownLeft",
+              "mouthFrownRight",
+            ],
+            cool: ["eyeSquintLeft", "eyeSquintRight", "mouthSmile"],
+            shy: [
+              "eyeSquintLeft",
+              "eyeSquintRight",
+              "mouthSmileLeft",
+              "mouthSmileRight",
+            ],
+            crazy: ["eyeWideLeft", "eyeWideRight", "mouthSmile", "tongueOut"],
           };
-          
+
           const targetMorphs = emotionMappings[currentEmotion] || [];
-          
+
           Object.keys(dictionary).forEach((key) => {
             const index = dictionary[key];
-            
+
             // Check if this morph target matches our emotion
-            const shouldActivate = targetMorphs.some(target => 
-              key.toLowerCase().includes(target.toLowerCase()) ||
-              target.toLowerCase().includes(key.toLowerCase())
+            const shouldActivate = targetMorphs.some(
+              (target) =>
+                key.toLowerCase().includes(target.toLowerCase()) ||
+                target.toLowerCase().includes(key.toLowerCase())
             );
-            
-            if (shouldActivate && mesh.morphTargetInfluences[index] !== undefined) {
+
+            if (
+              shouldActivate &&
+              mesh.morphTargetInfluences[index] !== undefined
+            ) {
               mesh.morphTargetInfluences[index] = 0.8; // Slightly less than full intensity
-              console.log('Activated morph target:', key, 'for emotion:', currentEmotion);
+              console.log(
+                "Activated morph target:",
+                key,
+                "for emotion:",
+                currentEmotion
+              );
             }
           });
         }
-        
+
         // Apply blinking (override emotion for blink targets)
         Object.keys(dictionary).forEach((key) => {
           const lowerKey = key.toLowerCase();
-          if (lowerKey.includes("blink") || lowerKey.includes("eye_close") || lowerKey.includes("eyeblink")) {
+          if (
+            lowerKey.includes("blink") ||
+            lowerKey.includes("eye_close") ||
+            lowerKey.includes("eyeblink")
+          ) {
             const index = dictionary[key];
             if (mesh.morphTargetInfluences[index] !== undefined) {
               mesh.morphTargetInfluences[index] = isBlinking ? 1 : 0;
@@ -204,8 +285,8 @@ const AvatarViewer = ({ avatarUrl, currentEmotion, showDebug }) => {
             <ambientLight intensity={0.5} />
             <directionalLight position={[10, 10, 5]} intensity={1} />
             {avatarUrl && (
-              <AvatarModel 
-                url={avatarUrl} 
+              <AvatarModel
+                url={avatarUrl}
                 currentEmotion={currentEmotion}
                 onMorphTargetsFound={handleMorphTargetsFound}
               />
@@ -220,25 +301,37 @@ const AvatarViewer = ({ avatarUrl, currentEmotion, showDebug }) => {
           </Suspense>
         </Canvas>
       </div>
-      
+
       {showDebug && availableMorphs.length > 0 && (
-        <div style={{ 
-          marginTop: '10px', 
-          padding: '10px', 
-          backgroundColor: '#f0f0f0', 
-          borderRadius: '5px',
-          maxHeight: '200px',
-          overflowY: 'auto'
-        }}>
+        <div
+          style={{
+            marginTop: "10px",
+            padding: "10px",
+            backgroundColor: "#f0f0f0",
+            borderRadius: "5px",
+            maxHeight: "200px",
+            overflowY: "auto",
+          }}
+        >
           <h4>Available Morph Targets:</h4>
-          <div style={{ fontSize: '12px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+          <div
+            style={{
+              fontSize: "12px",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "5px",
+            }}
+          >
             {availableMorphs.map((morph, index) => (
-              <span key={index} style={{ 
-                backgroundColor: '#007bff', 
-                color: 'white', 
-                padding: '2px 6px', 
-                borderRadius: '3px' 
-              }}>
+              <span
+                key={index}
+                style={{
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  padding: "2px 6px",
+                  borderRadius: "3px",
+                }}
+              >
                 {morph}
               </span>
             ))}

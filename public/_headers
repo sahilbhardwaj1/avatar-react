@@ -1,0 +1,19 @@
+/*
+  X-Frame-Options: DENY
+  X-XSS-Protection: 1; mode=block
+  X-Content-Type-Options: nosniff
+
+/*.js
+  Content-Type: application/javascript
+
+/*.mjs
+  Content-Type: application/javascript
+
+/*.wasm
+  Content-Type: application/wasm
+
+/*.glb
+  Content-Type: model/gltf-binary
+
+/*.gltf
+  Content-Type: model/gltf+json
