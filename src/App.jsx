@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import AvatarViewer from "./components/AvatarViewer";
 import "./App.css";
 
@@ -7,6 +7,9 @@ function App() {
     "https://models.readyplayer.me/68b586e26b7c5bd83d977df4.glb";
   const [currentEmotion, setCurrentEmotion] = useState("neutral");
   const [showDebug, setShowDebug] = useState(true);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [, setCurrentEmotionIndex] = useState(0);
+  const autoPlayIntervalRef = useRef(null);
 
   const emotions = [
     { name: "neutral", emoji: "😐", color: "#6c757d" },
@@ -32,12 +35,49 @@ function App() {
   ];
 
   const handleEmotionClick = (emotion) => {
-    setCurrentEmotion(emotion);
-    // Auto-reset to neutral after 3 seconds
-    setTimeout(() => {
-      setCurrentEmotion("neutral");
-    }, 3000);
+    if (!isAutoPlaying) {
+      setCurrentEmotion(emotion);
+      // Auto-reset to neutral after 4 seconds to allow for smooth transitions
+      setTimeout(() => {
+        if (!isAutoPlaying) {
+          setCurrentEmotion("neutral");
+        }
+      }, 4000);
+    }
   };
+
+  const startAutoPlay = () => {
+    setIsAutoPlaying(true);
+    setCurrentEmotionIndex(0);
+    setCurrentEmotion(emotions[0].name);
+    
+    autoPlayIntervalRef.current = setInterval(() => {
+      setCurrentEmotionIndex(prevIndex => {
+        const nextIndex = (prevIndex + 1) % emotions.length;
+        setCurrentEmotion(emotions[nextIndex].name);
+        return nextIndex;
+      });
+    }, 1200); // Slower for better transition visibility - change emotion every 1.2 seconds
+  };
+
+  const stopAutoPlay = () => {
+    setIsAutoPlaying(false);
+    if (autoPlayIntervalRef.current) {
+      clearInterval(autoPlayIntervalRef.current);
+      autoPlayIntervalRef.current = null;
+    }
+    setCurrentEmotion("neutral");
+    setCurrentEmotionIndex(0);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoPlayIntervalRef.current) {
+        clearInterval(autoPlayIntervalRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto" }}>
@@ -87,7 +127,43 @@ function App() {
         </div>
 
         <div style={{ flex: "0 0 300px" }}>
-          <h2>Emotion Controls</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
+            <h2 style={{ margin: 0 }}>Emotion Controls</h2>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={startAutoPlay}
+                disabled={isAutoPlaying}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: isAutoPlaying ? "#6c757d" : "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: isAutoPlaying ? "not-allowed" : "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold"
+                }}
+              >
+                ▶ Start Auto
+              </button>
+              <button
+                onClick={stopAutoPlay}
+                disabled={!isAutoPlaying}
+                style={{
+                  padding: "8px 16px",
+                  backgroundColor: !isAutoPlaying ? "#6c757d" : "#dc3545",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: !isAutoPlaying ? "not-allowed" : "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold"
+                }}
+              >
+                ⏹ Stop Auto
+              </button>
+            </div>
+          </div>
           <div
             style={{
               display: "grid",
@@ -99,6 +175,8 @@ function App() {
               border: "1px solid #ddd",
               borderRadius: "8px",
               backgroundColor: "#f8f9fa",
+              opacity: isAutoPlaying ? 0.6 : 1,
+              pointerEvents: isAutoPlaying ? "none" : "auto"
             }}
           >
             {emotions.map((emotion) => (
@@ -145,8 +223,10 @@ function App() {
             ))}
           </div>
           <p style={{ fontSize: "12px", color: "#666", marginTop: "10px" }}>
-            Click any emotion button to see the avatar's expression change.
-            Emotions auto-reset to neutral after 3 seconds.
+            {isAutoPlaying 
+              ? "🚀 Auto-playing through all emotions super fast! Click 'Stop Auto' to return to manual control."
+              : "Click any emotion button to see the avatar's expression change. Use 'Start Auto' for rapid emotion cycling."
+            }
           </p>
         </div>
       </div>

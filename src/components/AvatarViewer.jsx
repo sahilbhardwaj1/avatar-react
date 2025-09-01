@@ -14,6 +14,13 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
   const [isBlinking, setIsBlinking] = useState(false);
   const [morphTargets, setMorphTargets] = useState({});
 
+  // Smooth transition system
+  const currentEmotionValues = useRef({});
+  const targetEmotionValues = useRef({});
+  const previousEmotion = useRef(currentEmotion);
+  const transitionProgress = useRef(0);
+  const transitionDuration = 0.8; // seconds for smooth transition
+
   useEffect(() => {
     if (gltf.scene) {
       const foundMorphTargets = {};
@@ -38,11 +45,6 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
 
         // Collect morph targets for emotions
         if (child.isMesh && child.morphTargetDictionary) {
-          console.log("Found mesh with morph targets:", child.name);
-          console.log(
-            "Available morph targets:",
-            Object.keys(child.morphTargetDictionary)
-          );
           foundMorphTargets[child.uuid] = {
             mesh: child,
             dictionary: child.morphTargetDictionary,
@@ -65,6 +67,128 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
     }
   }, [gltf, onMorphTargetsFound]);
 
+  // Helper function for linear interpolation
+  const lerp = (start, end, factor) => {
+    return start + (end - start) * factor;
+  };
+
+  // Helper function to get emotion intensity values
+  const getEmotionIntensities = (emotion) => {
+    const emotionMappings = {
+      happy: [
+        "mouthSmile",
+        "mouthSmileLeft",
+        "mouthSmileRight",
+        "cheekSquintLeft",
+        "cheekSquintRight",
+      ],
+      sad: [
+        "mouthFrownLeft",
+        "mouthFrownRight",
+        "browDownLeft",
+        "browDownRight",
+      ],
+      angry: [
+        "browDownLeft",
+        "browDownRight",
+        "mouthPressLeft",
+        "mouthPressRight",
+        "noseSneerLeft",
+        "noseSneerRight",
+      ],
+      surprised: ["browInnerUp", "eyeWideLeft", "eyeWideRight", "jawOpen"],
+      disgusted: [
+        "noseSneerLeft",
+        "noseSneerRight",
+        "mouthUpperUpLeft",
+        "mouthUpperUpRight",
+      ],
+      fearful: [
+        "browInnerUp",
+        "eyeWideLeft",
+        "eyeWideRight",
+        "mouthStretchLeft",
+        "mouthStretchRight",
+      ],
+      joy: [
+        "mouthSmile",
+        "cheekSquintLeft",
+        "cheekSquintRight",
+        "eyeSquintLeft",
+        "eyeSquintRight",
+      ],
+      excited: ["browInnerUp", "mouthSmile", "eyeWideLeft", "eyeWideRight"],
+      confused: ["browDownLeft", "browDownRight", "mouthLeft", "mouthRight"],
+      wink: ["eyeBlinkLeft"],
+      laugh: ["mouthSmile", "jawOpen", "cheekSquintLeft", "cheekSquintRight"],
+      smirk: ["mouthSmileLeft", "mouthDimpleLeft"],
+      thinking: ["mouthPucker", "browDownLeft", "browDownRight"],
+      love: ["mouthKiss", "eyeSquintLeft", "eyeSquintRight"],
+      tired: [
+        "eyeSquintLeft",
+        "eyeSquintRight",
+        "mouthFrownLeft",
+        "mouthFrownRight",
+      ],
+      cool: ["eyeSquintLeft", "eyeSquintRight", "mouthSmile"],
+      shy: [
+        "eyeSquintLeft",
+        "eyeSquintRight",
+        "mouthSmileLeft",
+        "mouthSmileRight",
+      ],
+      crazy: ["eyeWideLeft", "eyeWideRight", "mouthSmile", "tongueOut"],
+      contempt: ["mouthSmileLeft", "noseSneerLeft"],
+    };
+
+    // Custom intensity values for more natural expressions
+    const emotionIntensities = {
+      happy: 0.15,
+      sad: 0.2,
+      angry: 0.25,
+      surprised: 0.3,
+      disgusted: 0.2,
+      fearful: 0.25,
+      joy: 0.18,
+      excited: 0.28,
+      confused: 0.15,
+      wink: 0.8,
+      laugh: 0.22,
+      smirk: 0.25,
+      thinking: 0.18,
+      love: 0.2,
+      tired: 0.15,
+      cool: 0.2,
+      shy: 0.12,
+      crazy: 0.35,
+      contempt: 0.2,
+    };
+
+    const targetMorphs = emotionMappings[emotion] || [];
+    const intensity = emotionIntensities[emotion] || 0.2;
+
+    return { targetMorphs, intensity };
+  };
+
+  // Check if emotion changed and start transition
+  useEffect(() => {
+    if (previousEmotion.current !== currentEmotion) {
+      // Start new transition
+      transitionProgress.current = 0;
+
+      // Set target emotion values
+      if (currentEmotion === "neutral") {
+        targetEmotionValues.current = {};
+      } else {
+        const { targetMorphs, intensity } =
+          getEmotionIntensities(currentEmotion);
+        targetEmotionValues.current = { targetMorphs, intensity };
+      }
+
+      previousEmotion.current = currentEmotion;
+    }
+  }, [currentEmotion]);
+
   useFrame((state, delta) => {
     if (mixer) {
       mixer.update(delta);
@@ -73,11 +197,8 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
     // Head movement animation
     if (headBone) {
       const time = state.clock.elapsedTime;
-
-      // Subtle head movement
       const headX = Math.sin(time * 0.5) * 0.1;
       const headY = Math.cos(time * 0.3) * 0.05;
-
       headBone.rotation.x = headX;
       headBone.rotation.y = headY;
     }
@@ -86,113 +207,34 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
     setBlinkTimer((prev) => prev + delta);
 
     if (blinkTimer > 2 + Math.random() * 3) {
-      // Random blink interval
       setIsBlinking(true);
       setBlinkTimer(0);
-
       setTimeout(() => {
         setIsBlinking(false);
-      }, 150); // Blink duration
+      }, 150);
     }
 
-    // Apply emotions and blinking to morph targets
+    // Update transition progress
+    if (transitionProgress.current < 1) {
+      transitionProgress.current = Math.min(
+        1,
+        transitionProgress.current + delta / transitionDuration
+      );
+    }
+
+    // Apply smooth emotion transitions to morph targets
     Object.values(morphTargets).forEach(({ mesh, dictionary }) => {
       if (mesh.morphTargetInfluences) {
         // Reset all morph targets first
         mesh.morphTargetInfluences.fill(0);
 
-        // Apply current emotion
-        if (currentEmotion && currentEmotion !== "neutral") {
-          console.log("Applying emotion:", currentEmotion);
+        // Apply smooth emotion transition
+        if (targetEmotionValues.current.targetMorphs) {
+          const { targetMorphs, intensity } = targetEmotionValues.current;
+          const progress = transitionProgress.current;
 
-          // Ready Player Me emotion mapping
-          const emotionMappings = {
-            happy: [
-              "mouthSmile",
-              "mouthSmileLeft",
-              "mouthSmileRight",
-              "cheekSquintLeft",
-              "cheekSquintRight",
-            ],
-            sad: [
-              "mouthFrownLeft",
-              "mouthFrownRight",
-              "browDownLeft",
-              "browDownRight",
-            ],
-            angry: [
-              "browDownLeft",
-              "browDownRight",
-              "mouthPressLeft",
-              "mouthPressRight",
-              "noseSneerLeft",
-              "noseSneerRight",
-            ],
-            surprised: [
-              "browInnerUp",
-              "eyeWideLeft",
-              "eyeWideRight",
-              "jawOpen",
-            ],
-            disgusted: [
-              "noseSneerLeft",
-              "noseSneerRight",
-              "mouthUpperUpLeft",
-              "mouthUpperUpRight",
-            ],
-            fearful: [
-              "browInnerUp",
-              "eyeWideLeft",
-              "eyeWideRight",
-              "mouthStretchLeft",
-              "mouthStretchRight",
-            ],
-            joy: [
-              "mouthSmile",
-              "cheekSquintLeft",
-              "cheekSquintRight",
-              "eyeSquintLeft",
-              "eyeSquintRight",
-            ],
-            excited: [
-              "browInnerUp",
-              "mouthSmile",
-              "eyeWideLeft",
-              "eyeWideRight",
-            ],
-            confused: [
-              "browDownLeft",
-              "browDownRight",
-              "mouthLeft",
-              "mouthRight",
-            ],
-            wink: ["eyeBlinkLeft"],
-            laugh: [
-              "mouthSmile",
-              "jawOpen",
-              "cheekSquintLeft",
-              "cheekSquintRight",
-            ],
-            smirk: ["mouthSmileLeft", "mouthDimpleLeft"],
-            thinking: ["mouthPucker", "browDownLeft", "browDownRight"],
-            love: ["mouthKiss", "eyeSquintLeft", "eyeSquintRight"],
-            tired: [
-              "eyeSquintLeft",
-              "eyeSquintRight",
-              "mouthFrownLeft",
-              "mouthFrownRight",
-            ],
-            cool: ["eyeSquintLeft", "eyeSquintRight", "mouthSmile"],
-            shy: [
-              "eyeSquintLeft",
-              "eyeSquintRight",
-              "mouthSmileLeft",
-              "mouthSmileRight",
-            ],
-            crazy: ["eyeWideLeft", "eyeWideRight", "mouthSmile", "tongueOut"],
-          };
-
-          const targetMorphs = emotionMappings[currentEmotion] || [];
+          // Use easing function for smoother transitions
+          const easedProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
 
           Object.keys(dictionary).forEach((key) => {
             const index = dictionary[key];
@@ -208,13 +250,42 @@ const AvatarModel = ({ url, currentEmotion, onMorphTargetsFound }) => {
               shouldActivate &&
               mesh.morphTargetInfluences[index] !== undefined
             ) {
-              mesh.morphTargetInfluences[index] = 0.8; // Slightly less than full intensity
-              console.log(
-                "Activated morph target:",
-                key,
-                "for emotion:",
-                currentEmotion
-              );
+              // Get current value (from previous frame)
+              const currentValue = currentEmotionValues.current[key] || 0;
+
+              // Interpolate to target intensity
+              const targetValue = intensity;
+              const newValue = lerp(currentValue, targetValue, easedProgress);
+
+              mesh.morphTargetInfluences[index] = newValue;
+              currentEmotionValues.current[key] = newValue;
+            } else {
+              // Fade out non-active morph targets
+              const currentValue = currentEmotionValues.current[key] || 0;
+              if (currentValue > 0) {
+                const newValue = lerp(currentValue, 0, easedProgress);
+                if (mesh.morphTargetInfluences[index] !== undefined) {
+                  mesh.morphTargetInfluences[index] = newValue;
+                }
+                currentEmotionValues.current[key] = newValue;
+              }
+            }
+          });
+        } else {
+          // Transitioning to neutral - fade out all emotions
+          const progress = transitionProgress.current;
+          const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+          Object.keys(dictionary).forEach((key) => {
+            const index = dictionary[key];
+            const currentValue = currentEmotionValues.current[key] || 0;
+
+            if (currentValue > 0) {
+              const newValue = lerp(currentValue, 0, easedProgress);
+              if (mesh.morphTargetInfluences[index] !== undefined) {
+                mesh.morphTargetInfluences[index] = newValue;
+              }
+              currentEmotionValues.current[key] = newValue;
             }
           });
         }
